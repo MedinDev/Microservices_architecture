@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: service-registry
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+  server:
+    enable-self-preservation: true
+    peer-node-read-timeout-ms: 1000
+    peer-node-connect-timeout-ms: 1000
+    wait-time-in-ms-when-sync-empty: 0
+
+---
+spring:
+  config:
+    activate:
+      on-profile: peer1
+
+server:
+  port: 8761
+
+eureka:
+  instance:
+    hostname: service-registry-1
+  client:
+    service-url:
+      defaultZone: http://service-registry-2:8761/eureka
+
+---
+spring:
+  config:
+    activate:
+      on-profile: peer2
+
+server:
+  port: 8761
+
+eureka:
+  instance:
+    hostname: service-registry-2
+  client:
+    service-url:
+      defaultZone: http://service-registry-1:8761/eureka
