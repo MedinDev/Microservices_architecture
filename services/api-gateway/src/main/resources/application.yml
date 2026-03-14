@@ -83,6 +83,16 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${MANAGEMENT_ZIPKIN_TRACING_ENDPOINT:http://localhost:9411/api/v2/spans}
   endpoint:
     health:
       show-details: always
+
+logging:
+  pattern:
+    level: "%5p [trace=%X{traceId:-},span=%X{spanId:-},corr=%X{correlationId:-}]"

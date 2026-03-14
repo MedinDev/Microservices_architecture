@@ -226,6 +226,7 @@ services:
     environment:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry-1:8761/eureka,http://service-registry-2:8761/eureka
       SPRING_DATA_REDIS_HOST: redis
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://host.docker.internal:9411/api/v2/spans
     healthcheck:
       test: [ "CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health > /dev/null || exit 1" ]
       interval: 15s
@@ -258,6 +259,7 @@ services:
       DB_PASSWORD: order_password
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9093
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry-1:8761/eureka,http://service-registry-2:8761/eureka
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://host.docker.internal:9411/api/v2/spans
     ports:
       - "8081:8081"
     healthcheck:
@@ -292,6 +294,7 @@ services:
       DB_PASSWORD: payment_password
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9093
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry-1:8761/eureka,http://service-registry-2:8761/eureka
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://host.docker.internal:9411/api/v2/spans
     ports:
       - "8082:8082"
     healthcheck:
@@ -326,6 +329,7 @@ services:
       DB_PASSWORD: notification_password
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9093
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry-1:8761/eureka,http://service-registry-2:8761/eureka
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://host.docker.internal:9411/api/v2/spans
     ports:
       - "8083:8083"
     healthcheck:
