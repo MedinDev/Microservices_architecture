@@ -20,6 +20,8 @@ import com.microservices.notification.dto.NotificationResponse;
 import com.microservices.notification.repository.NotificationRepository;
 import com.microservices.notification.repository.ProcessedNotificationEventRepository;
 import com.microservices.notification.repository.UserPreferenceRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,6 +45,7 @@ public class NotificationService {
     private final KafkaTemplate<String, DomainEvent> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private final ProcessedNotificationEventRepository processedNotificationEventRepository;
+    private final MeterRegistry meterRegistry;
 
     public NotificationService(
         NotificationRepository notificationRepository,
@@ -51,7 +54,8 @@ public class NotificationService {
         SimpMessagingTemplate messagingTemplate,
         KafkaTemplate<String, DomainEvent> kafkaTemplate,
         ObjectMapper objectMapper,
-        ProcessedNotificationEventRepository processedNotificationEventRepository
+        ProcessedNotificationEventRepository processedNotificationEventRepository,
+        MeterRegistry meterRegistry
     ) {
         this.notificationRepository = notificationRepository;
         this.preferenceRepository = preferenceRepository;
@@ -60,6 +64,7 @@ public class NotificationService {
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
         this.processedNotificationEventRepository = processedNotificationEventRepository;
+        this.meterRegistry = meterRegistry;
     }
 
     @Transactional(readOnly = true)
@@ -127,10 +132,18 @@ public class NotificationService {
             notification.setStatus(NotificationStatus.SENT);
             notification.setSentAt(Instant.now());
             notificationRepository.save(notification);
+            incrementNotificationSentCounter(channel);
             messagingTemplate.convertAndSend("/topic/notifications/" + userId, toResponse(notification));
             publishSentEvent(notification, event.correlationId());
         }
         markEventProcessed(event.eventId());
+    }
+
+    private void incrementNotificationSentCounter(NotificationChannel channel) {
+        Counter.builder("business_notifications_sent_total")
+            .tag("channel", channel.name())
+            .register(meterRegistry)
+            .increment();
     }
 
     private void sendByChannel(NotificationEntity notification) {

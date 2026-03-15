@@ -7,9 +7,17 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
   endpoint:
     health:
       show-details: always
+
+logging:
+  structured:
+    format:
+      console: json
 
 eureka:
   instance:

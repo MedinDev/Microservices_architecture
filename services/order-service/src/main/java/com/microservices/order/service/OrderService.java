@@ -22,7 +22,12 @@ import com.microservices.order.dto.OrderResponse;
 import com.microservices.order.repository.OrderOutboxRepository;
 import com.microservices.order.repository.ProcessedOrderEventRepository;
 import com.microservices.order.repository.OrderRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +49,10 @@ public class OrderService {
     private final ObjectMapper objectMapper;
     private final InventoryServiceClient inventoryServiceClient;
     private final ProcessedOrderEventRepository processedOrderEventRepository;
+    private final Counter ordersCreatedCounter;
+    private final Counter ordersCancelledCounter;
+    private final DistributionSummary orderAmountSummary;
+    private final Timer createOrderTimer;
 
     public OrderService(
         OrderRepository orderRepository,
@@ -51,7 +60,8 @@ public class OrderService {
         KafkaTemplate<String, DomainEvent> kafkaTemplate,
         ObjectMapper objectMapper,
         InventoryServiceClient inventoryServiceClient,
-        ProcessedOrderEventRepository processedOrderEventRepository
+        ProcessedOrderEventRepository processedOrderEventRepository,
+        MeterRegistry meterRegistry
     ) {
         this.orderRepository = orderRepository;
         this.outboxRepository = outboxRepository;
@@ -59,32 +69,43 @@ public class OrderService {
         this.objectMapper = objectMapper;
         this.inventoryServiceClient = inventoryServiceClient;
         this.processedOrderEventRepository = processedOrderEventRepository;
+        this.ordersCreatedCounter = Counter.builder("business_orders_created_total").register(meterRegistry);
+        this.ordersCancelledCounter = Counter.builder("business_orders_cancelled_total").register(meterRegistry);
+        this.orderAmountSummary = DistributionSummary.builder("business_order_total_amount").baseUnit("currency").register(meterRegistry);
+        this.createOrderTimer = Timer.builder("business_order_create_duration").register(meterRegistry);
     }
 
     @Transactional
     @CacheEvict(cacheNames = "user-orders", key = "#request.userId")
     public OrderResponse createOrder(CreateOrderRequest request) {
-        validateOrder(request);
-        OrderEntity order = new OrderEntity();
-        order.setUserId(request.userId());
-        order.setStatus(OrderStatus.PAYMENT_PENDING);
-        order.setCreatedAt(Instant.now());
-        order.setUpdatedAt(Instant.now());
-        BigDecimal total = request.items().stream()
-            .map(item -> item.unitPrice().multiply(BigDecimal.valueOf(item.quantity())))
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-        order.setTotalAmount(total);
-        request.items().forEach(item -> {
-            OrderItemEntity orderItem = new OrderItemEntity();
-            orderItem.setOrder(order);
-            orderItem.setProductCode(item.productCode());
-            orderItem.setQuantity(item.quantity());
-            orderItem.setUnitPrice(item.unitPrice());
-            order.getItems().add(orderItem);
-        });
-        OrderEntity saved = orderRepository.save(order);
-        enqueueOutbox(saved, EventType.ORDER_CREATED);
-        return toResponse(saved);
+        long startTime = System.nanoTime();
+        try {
+            validateOrder(request);
+            OrderEntity order = new OrderEntity();
+            order.setUserId(request.userId());
+            order.setStatus(OrderStatus.PAYMENT_PENDING);
+            order.setCreatedAt(Instant.now());
+            order.setUpdatedAt(Instant.now());
+            BigDecimal total = request.items().stream()
+                .map(item -> item.unitPrice().multiply(BigDecimal.valueOf(item.quantity())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            order.setTotalAmount(total);
+            request.items().forEach(item -> {
+                OrderItemEntity orderItem = new OrderItemEntity();
+                orderItem.setOrder(order);
+                orderItem.setProductCode(item.productCode());
+                orderItem.setQuantity(item.quantity());
+                orderItem.setUnitPrice(item.unitPrice());
+                order.getItems().add(orderItem);
+            });
+            OrderEntity saved = orderRepository.save(order);
+            enqueueOutbox(saved, EventType.ORDER_CREATED);
+            ordersCreatedCounter.increment();
+            orderAmountSummary.record(total.doubleValue());
+            return toResponse(saved);
+        } finally {
+            createOrderTimer.record(Duration.ofNanos(System.nanoTime() - startTime));
+        }
     }
 
     @Cacheable(cacheNames = "orders", key = "#orderId")
@@ -113,6 +134,7 @@ public class OrderService {
         OrderEntity saved = orderRepository.save(order);
         enqueueOutbox(saved, EventType.ORDER_CANCELLED);
         enqueueOutbox(saved, EventType.INVENTORY_RELEASED);
+        ordersCancelledCounter.increment();
         return toResponse(saved);
     }
 

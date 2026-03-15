@@ -1,0 +1,45 @@
+global:
+  resolve_timeout: 5m
+  smtp_from: alerts@microservices.local
+  smtp_smarthost: smtp.example.com:587
+  smtp_auth_username: ${ALERT_SMTP_USERNAME}
+  smtp_auth_password: ${ALERT_SMTP_PASSWORD}
+  smtp_require_tls: true
+
+route:
+  receiver: email-default
+  group_by:
+    - alertname
+    - application
+    - instance
+  group_wait: 30s
+  group_interval: 2m
+  repeat_interval: 2h
+  routes:
+    - matchers:
+        - severity="critical"
+      receiver: pagerduty-critical
+    - matchers:
+        - severity="warning"
+      receiver: slack-warnings
+
+receivers:
+  - name: email-default
+    email_configs:
+      - to: ${ALERT_EMAIL_TO:ops-team@example.com}
+        send_resolved: true
+
+  - name: slack-warnings
+    slack_configs:
+      - api_url: ${SLACK_WEBHOOK_URL}
+        channel: '#microservices-alerts'
+        send_resolved: true
+        title: '{{ .CommonLabels.alertname }}'
+        text: '{{ .CommonAnnotations.summary }} - {{ .CommonAnnotations.description }}'
+
+  - name: pagerduty-critical
+    pagerduty_configs:
+      - routing_key: ${PAGERDUTY_ROUTING_KEY}
+        severity: critical
+        send_resolved: true
+        description: '{{ .CommonAnnotations.summary }}'

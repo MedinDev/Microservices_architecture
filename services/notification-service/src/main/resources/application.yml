@@ -45,6 +45,9 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
   tracing:
     sampling:
       probability: 1.0
@@ -53,5 +56,6 @@ management:
       endpoint: ${MANAGEMENT_ZIPKIN_TRACING_ENDPOINT:http://localhost:9411/api/v2/spans}
 
 logging:
-  pattern:
-    level: "%5p [trace=%X{traceId:-},span=%X{spanId:-},corr=%X{correlationId:-}]"
+  structured:
+    format:
+      console: json

@@ -12,7 +12,24 @@ services:
       - "9090:9090"
     volumes:
       - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus_data:/prometheus
+    networks:
+      - monitoring
+      - backend
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --config.expand-env
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./config/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
     networks:
       - monitoring
 
@@ -21,6 +38,7 @@ services:
     container_name: grafana
     depends_on:
       - prometheus
+      - loki
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: admin
@@ -32,6 +50,44 @@ services:
       - ./config/grafana/dashboards:/var/lib/grafana/dashboards
     networks:
       - monitoring
+
+  loki:
+    image: grafana/loki:3.1.1
+    container_name: loki
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./config/loki/loki-config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    networks:
+      - monitoring
+
+  promtail:
+    image: grafana/promtail:3.1.1
+    container_name: promtail
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./config/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - loki
+    networks:
+      - monitoring
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.7.0
+    container_name: kafka-exporter
+    command:
+      - --kafka.server=kafka-1:9092
+      - --kafka.server=kafka-2:9093
+      - --log.enable-sarama
+    ports:
+      - "9308:9308"
+    networks:
+      - monitoring
+      - backend
 
   jaeger:
     image: jaegertracing/all-in-one:1.59
@@ -49,7 +105,12 @@ services:
 volumes:
   prometheus_data:
   grafana_data:
+  loki_data:
+  alertmanager_data:
 
 networks:
   monitoring:
     driver: bridge
+  backend:
+    external: true
+    name: microservices-platform_backend

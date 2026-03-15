@@ -21,10 +21,15 @@ import com.microservices.payment.repository.PaymentRepository;
 import com.microservices.payment.repository.PaymentTransactionLogRepository;
 import com.microservices.payment.repository.ProcessedPaymentEventRepository;
 import com.microservices.payment.repository.RefundRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.DistributionSummary;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +59,11 @@ public class PaymentService {
     private final ProcessedPaymentEventRepository processedPaymentEventRepository;
     private final Map<Long, PaymentResponse> paymentReadCache = new ConcurrentHashMap<>();
     private final Map<Long, List<PaymentResponse>> orderPaymentReadCache = new ConcurrentHashMap<>();
+    private final Counter paymentsProcessedCounter;
+    private final Counter paymentsFailedCounter;
+    private final Counter refundsProcessedCounter;
+    private final DistributionSummary paymentAmountSummary;
+    private final Timer processPaymentTimer;
 
     public PaymentService(
         PaymentRepository paymentRepository,
@@ -63,7 +73,8 @@ public class PaymentService {
         ObjectMapper objectMapper,
         RedisLockRegistry lockRegistry,
         PaymentGatewayClient paymentGatewayClient,
-        ProcessedPaymentEventRepository processedPaymentEventRepository
+        ProcessedPaymentEventRepository processedPaymentEventRepository,
+        MeterRegistry meterRegistry
     ) {
         this.paymentRepository = paymentRepository;
         this.transactionLogRepository = transactionLogRepository;
@@ -73,14 +84,24 @@ public class PaymentService {
         this.lockRegistry = lockRegistry;
         this.paymentGatewayClient = paymentGatewayClient;
         this.processedPaymentEventRepository = processedPaymentEventRepository;
+        this.paymentsProcessedCounter = Counter.builder("business_payments_processed_total").register(meterRegistry);
+        this.paymentsFailedCounter = Counter.builder("business_payments_failed_total").register(meterRegistry);
+        this.refundsProcessedCounter = Counter.builder("business_refunds_processed_total").register(meterRegistry);
+        this.paymentAmountSummary = DistributionSummary.builder("business_payment_amount").baseUnit("currency").register(meterRegistry);
+        this.processPaymentTimer = Timer.builder("business_payment_process_duration").register(meterRegistry);
     }
 
     @Transactional
     @Retryable(retryFor = RuntimeException.class, maxAttempts = 3, backoff = @Backoff(delay = 300))
     public PaymentResponse processPayment(ProcessPaymentRequest request) {
-        return paymentRepository.findByIdempotencyKey(request.idempotencyKey())
-            .map(this::toResponse)
-            .orElseGet(() -> processNewPayment(request));
+        long startTime = System.nanoTime();
+        try {
+            return paymentRepository.findByIdempotencyKey(request.idempotencyKey())
+                .map(this::toResponse)
+                .orElseGet(() -> processNewPayment(request));
+        } finally {
+            processPaymentTimer.record(Duration.ofNanos(System.nanoTime() - startTime));
+        }
     }
 
     @Transactional
@@ -120,6 +141,7 @@ public class PaymentService {
         paymentRepository.save(payment);
         writeLog(payment.getId(), "REFUND_PROCESSED", request.reason());
         publishPaymentEvent(payment, EventType.REFUND_PROCESSED, CorrelationIdUtil.currentOrNew());
+        refundsProcessedCounter.increment();
         return toResponse(payment);
     }
 
@@ -180,14 +202,17 @@ public class PaymentService {
                 payment.setFailureReason(null);
                 publishPaymentEvent(payment, EventType.PAYMENT_PROCESSED, correlationId);
                 writeLog(payment.getId(), "PAYMENT_PROCESSED", payment.getTransactionReference());
+                paymentsProcessedCounter.increment();
             } else {
                 payment.setStatus(PaymentStatus.FAILED);
                 payment.setFailureReason(gatewayResult.failureReason());
                 publishPaymentEvent(payment, EventType.PAYMENT_FAILED, correlationId);
                 writeLog(payment.getId(), "PAYMENT_FAILED", payment.getFailureReason());
+                paymentsFailedCounter.increment();
             }
             payment.setUpdatedAt(Instant.now());
             payment = paymentRepository.save(payment);
+            paymentAmountSummary.record(payment.getAmount().doubleValue());
             PaymentResponse response = toResponse(payment);
             paymentReadCache.put(response.paymentId(), response);
             orderPaymentReadCache.put(payment.getOrderId(), getOrderPayments(payment.getOrderId()));
@@ -275,6 +300,7 @@ public class PaymentService {
         paymentRepository.save(payment);
         writeLog(payment.getId(), "SAGA_COMPENSATION_REFUND", "Order cancelled: " + orderId);
         publishPaymentEvent(payment, EventType.REFUND_PROCESSED, correlationId);
+        refundsProcessedCounter.increment();
     }
 
     private PaymentResponse getPaymentFallback(Long paymentId, Throwable throwable) {
