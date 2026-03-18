@@ -1,9 +1,20 @@
 server:
   port: 8080
+  ssl:
+    enabled: ${SERVER_SSL_ENABLED:false}
+    key-store: ${SERVER_SSL_KEY_STORE:}
+    key-store-password: ${SERVER_SSL_KEY_STORE_PASSWORD:}
+    key-store-type: ${SERVER_SSL_KEY_STORE_TYPE:PKCS12}
 
 spring:
   application:
     name: api-gateway
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${SECURITY_OAUTH2_ISSUER_URI:http://localhost:8180/realms/microservices}
+          jwk-set-uri: ${SECURITY_OAUTH2_JWK_SET_URI:http://localhost:8180/realms/microservices/protocol/openid-connect/certs}
   data:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
@@ -100,3 +111,8 @@ logging:
   structured:
     format:
       console: json
+
+app:
+  security:
+    internal:
+      api-key: ${INTERNAL_SERVICE_API_KEY:internal-dev-key-change-me}

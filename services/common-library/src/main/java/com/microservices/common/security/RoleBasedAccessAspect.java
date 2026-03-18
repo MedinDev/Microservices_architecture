@@ -6,6 +6,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -22,6 +24,9 @@ public class RoleBasedAccessAspect {
 
     @Around("@annotation(requiredRole)")
     public Object enforceRole(ProceedingJoinPoint joinPoint, RequiredRole requiredRole) throws Throwable {
+        if (hasRequiredRoleInSecurityContext(requiredRole.value())) {
+            return joinPoint.proceed();
+        }
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (attributes == null) {
             throw new UnauthorizedException("No request context available");
@@ -32,5 +37,16 @@ public class RoleBasedAccessAspect {
             throw new UnauthorizedException("Required role not present: " + requiredRole.value());
         }
         return joinPoint.proceed();
+    }
+
+    private boolean hasRequiredRoleInSecurityContext(String requiredRole) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return false;
+        }
+        String normalizedRequiredRole = "ROLE_" + requiredRole.toUpperCase();
+        return authentication.getAuthorities().stream()
+            .map(grantedAuthority -> grantedAuthority.getAuthority().toUpperCase())
+            .anyMatch(authority -> authority.equals(normalizedRequiredRole) || authority.equals(requiredRole.toUpperCase()));
     }
 }

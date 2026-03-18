@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microservices.common.event.DomainEvent;
 import com.microservices.common.event.EventType;
+import com.microservices.common.security.FieldEncryptionService;
 import com.microservices.notification.domain.NotificationChannel;
 import com.microservices.notification.domain.NotificationEntity;
 import com.microservices.notification.domain.NotificationStatus;
@@ -54,7 +55,8 @@ class NotificationServiceTest {
             kafkaTemplate,
             new ObjectMapper(),
             processedNotificationEventRepository,
-            new SimpleMeterRegistry()
+            new SimpleMeterRegistry(),
+            new FieldEncryptionService("0123456789abcdef0123456789abcdef")
         );
     }
 

@@ -8,6 +8,7 @@ import com.microservices.common.event.EventType;
 import com.microservices.common.exception.BusinessValidationException;
 import com.microservices.common.exception.ResourceNotFoundException;
 import com.microservices.common.kafka.KafkaTopics;
+import com.microservices.common.security.DataMaskingUtil;
 import com.microservices.common.tracing.CorrelationIdUtil;
 import com.microservices.payment.domain.PaymentEntity;
 import com.microservices.payment.domain.PaymentStatus;
@@ -260,7 +261,7 @@ public class PaymentService {
         PaymentTransactionLogEntity log = new PaymentTransactionLogEntity();
         log.setPaymentId(paymentId);
         log.setAction(action);
-        log.setDetails(details);
+        log.setDetails(DataMaskingUtil.maskIdentifier(details));
         log.setCreatedAt(Instant.now());
         transactionLogRepository.save(log);
     }
@@ -331,7 +332,7 @@ public class PaymentService {
             payment.getUserId(),
             payment.getAmount(),
             payment.getStatus(),
-            payment.getTransactionReference(),
+            DataMaskingUtil.maskIdentifier(payment.getTransactionReference()),
             payment.getFailureReason(),
             payment.getCreatedAt(),
             payment.getUpdatedAt()

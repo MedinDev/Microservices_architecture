@@ -8,6 +8,7 @@ import com.microservices.common.event.DomainEvent;
 import com.microservices.common.event.EventType;
 import com.microservices.common.exception.ResourceNotFoundException;
 import com.microservices.common.kafka.KafkaTopics;
+import com.microservices.common.security.FieldEncryptionService;
 import com.microservices.common.tracing.CorrelationIdUtil;
 import com.microservices.notification.domain.NotificationChannel;
 import com.microservices.notification.domain.NotificationEntity;
@@ -46,6 +47,7 @@ public class NotificationService {
     private final ObjectMapper objectMapper;
     private final ProcessedNotificationEventRepository processedNotificationEventRepository;
     private final MeterRegistry meterRegistry;
+    private final FieldEncryptionService fieldEncryptionService;
 
     public NotificationService(
         NotificationRepository notificationRepository,
@@ -55,7 +57,8 @@ public class NotificationService {
         KafkaTemplate<String, DomainEvent> kafkaTemplate,
         ObjectMapper objectMapper,
         ProcessedNotificationEventRepository processedNotificationEventRepository,
-        MeterRegistry meterRegistry
+        MeterRegistry meterRegistry,
+        FieldEncryptionService fieldEncryptionService
     ) {
         this.notificationRepository = notificationRepository;
         this.preferenceRepository = preferenceRepository;
@@ -65,6 +68,7 @@ public class NotificationService {
         this.objectMapper = objectMapper;
         this.processedNotificationEventRepository = processedNotificationEventRepository;
         this.meterRegistry = meterRegistry;
+        this.fieldEncryptionService = fieldEncryptionService;
     }
 
     @Transactional(readOnly = true)
@@ -122,7 +126,7 @@ public class NotificationService {
             NotificationEntity notification = new NotificationEntity();
             notification.setUserId(userId);
             notification.setTitle(title);
-            notification.setMessage(message);
+            notification.setMessage(fieldEncryptionService.encrypt(message));
             notification.setChannel(channel);
             notification.setStatus(NotificationStatus.PENDING);
             notification.setReadFlag(false);
@@ -151,7 +155,7 @@ public class NotificationService {
             SimpleMailMessage mail = new SimpleMailMessage();
             mail.setTo("user" + notification.getUserId() + "@example.com");
             mail.setSubject(notification.getTitle());
-            mail.setText(notification.getMessage());
+            mail.setText(fieldEncryptionService.decrypt(notification.getMessage()));
             mailSender.send(mail);
         }
     }
@@ -261,7 +265,7 @@ public class NotificationService {
             entity.getId(),
             entity.getUserId(),
             entity.getTitle(),
-            entity.getMessage(),
+            fieldEncryptionService.decrypt(entity.getMessage()),
             entity.getChannel(),
             entity.getStatus(),
             entity.getReadFlag(),

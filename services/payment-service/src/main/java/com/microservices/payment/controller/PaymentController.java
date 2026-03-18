@@ -1,5 +1,7 @@
 package com.microservices.payment.controller;
 
+import com.microservices.common.audit.AuditableAction;
+import com.microservices.common.security.RequiredRole;
 import com.microservices.payment.dto.PaymentResponse;
 import com.microservices.payment.dto.ProcessPaymentRequest;
 import com.microservices.payment.dto.RefundRequest;
@@ -25,21 +27,29 @@ public class PaymentController {
     }
 
     @PostMapping("/process")
+    @RequiredRole("PAYMENT_USER")
+    @AuditableAction("PAYMENT_PROCESS")
     public ResponseEntity<PaymentResponse> processPayment(@Valid @RequestBody ProcessPaymentRequest request) {
         return ResponseEntity.ok(paymentService.processPayment(request));
     }
 
     @GetMapping("/{paymentId}")
+    @RequiredRole("PAYMENT_USER")
+    @AuditableAction("PAYMENT_READ")
     public ResponseEntity<PaymentResponse> getPayment(@PathVariable Long paymentId) {
         return ResponseEntity.ok(paymentService.getPayment(paymentId));
     }
 
     @GetMapping("/order/{orderId}")
+    @RequiredRole("PAYMENT_USER")
+    @AuditableAction("PAYMENT_LIST_BY_ORDER")
     public ResponseEntity<List<PaymentResponse>> getOrderPayments(@PathVariable Long orderId) {
         return ResponseEntity.ok(paymentService.getOrderPayments(orderId));
     }
 
     @PostMapping("/{paymentId}/refund")
+    @RequiredRole("PAYMENT_ADMIN")
+    @AuditableAction("PAYMENT_REFUND")
     public ResponseEntity<PaymentResponse> refund(@PathVariable Long paymentId, @Valid @RequestBody RefundRequest request) {
         return ResponseEntity.ok(paymentService.refund(paymentId, request));
     }

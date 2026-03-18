@@ -1,11 +1,23 @@
 server:
   port: 8081
+  ssl:
+    enabled: ${SERVER_SSL_ENABLED:false}
+    key-store: ${SERVER_SSL_KEY_STORE:}
+    key-store-password: ${SERVER_SSL_KEY_STORE_PASSWORD:}
+    key-store-type: ${SERVER_SSL_KEY_STORE_TYPE:PKCS12}
+    client-auth: ${SERVER_SSL_CLIENT_AUTH:none}
 
 spring:
   application:
     name: order-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${SECURITY_OAUTH2_ISSUER_URI:http://localhost:8180/realms/microservices}
+          jwk-set-uri: ${SECURITY_OAUTH2_JWK_SET_URI:http://localhost:8180/realms/microservices/protocol/openid-connect/certs}
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:order_db}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:order_db}?sslmode=${DB_SSL_MODE:disable}
     username: ${DB_USER:order_user}
     password: ${DB_PASSWORD:order_password}
   jpa:
@@ -17,6 +29,13 @@ spring:
     locations: classpath:db/migration
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:19092,localhost:19093}
+    properties:
+      security.protocol: ${KAFKA_SECURITY_PROTOCOL:PLAINTEXT}
+      ssl.truststore.location: ${KAFKA_SSL_TRUSTSTORE_LOCATION:}
+      ssl.truststore.password: ${KAFKA_SSL_TRUSTSTORE_PASSWORD:}
+      ssl.keystore.location: ${KAFKA_SSL_KEYSTORE_LOCATION:}
+      ssl.keystore.password: ${KAFKA_SSL_KEYSTORE_PASSWORD:}
+      ssl.key.password: ${KAFKA_SSL_KEY_PASSWORD:}
   data:
     redis:
       host: ${SPRING_DATA_REDIS_HOST:localhost}
@@ -27,6 +46,12 @@ spring:
 app:
   kafka:
     group-id: order-service-group
+  security:
+    internal:
+      api-key: ${INTERNAL_SERVICE_API_KEY:internal-dev-key-change-me}
+      trusted-sources: ${INTERNAL_TRUSTED_SOURCES:api-gateway,order-service,payment-service,notification-service}
+    data:
+      encryption-key: ${DATA_ENCRYPTION_KEY:0123456789abcdef0123456789abcdef}
 
 eureka:
   client:

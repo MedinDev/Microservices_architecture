@@ -1,5 +1,7 @@
 package com.microservices.order.controller;
 
+import com.microservices.common.audit.AuditableAction;
+import com.microservices.common.security.RequiredRole;
 import com.microservices.order.domain.OrderStatus;
 import com.microservices.order.dto.CreateOrderRequest;
 import com.microservices.order.dto.OrderResponse;
@@ -26,26 +28,36 @@ public class OrderController {
     }
 
     @PostMapping
+    @RequiredRole("ORDER_USER")
+    @AuditableAction("ORDER_CREATE")
     public ResponseEntity<OrderResponse> createOrder(@Valid @RequestBody CreateOrderRequest request) {
         return ResponseEntity.ok(orderService.createOrder(request));
     }
 
     @GetMapping("/{id}")
+    @RequiredRole("ORDER_USER")
+    @AuditableAction("ORDER_READ")
     public ResponseEntity<OrderResponse> getOrder(@PathVariable Long id) {
         return ResponseEntity.ok(orderService.getOrderById(id));
     }
 
     @GetMapping("/user/{userId}")
+    @RequiredRole("ORDER_USER")
+    @AuditableAction("ORDER_LIST_BY_USER")
     public ResponseEntity<List<OrderResponse>> getUserOrders(@PathVariable Long userId) {
         return ResponseEntity.ok(orderService.getOrdersByUserId(userId));
     }
 
     @PutMapping("/{id}/cancel")
+    @RequiredRole("ORDER_ADMIN")
+    @AuditableAction("ORDER_CANCEL")
     public ResponseEntity<OrderResponse> cancelOrder(@PathVariable Long id) {
         return ResponseEntity.ok(orderService.cancelOrder(id));
     }
 
     @GetMapping("/status/{orderId}")
+    @RequiredRole("ORDER_USER")
+    @AuditableAction("ORDER_STATUS_TRACK")
     public ResponseEntity<OrderStatus> trackStatus(@PathVariable Long orderId) {
         return ResponseEntity.ok(orderService.getOrderStatus(orderId));
     }
