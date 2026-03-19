@@ -29,9 +29,11 @@ import io.micrometer.core.instrument.Timer;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -53,6 +55,8 @@ public class OrderService {
     private final Counter ordersCancelledCounter;
     private final DistributionSummary orderAmountSummary;
     private final Timer createOrderTimer;
+    private final int outboxRetentionDays;
+    private final int processedEventRetentionDays;
 
     public OrderService(
         OrderRepository orderRepository,
@@ -61,7 +65,9 @@ public class OrderService {
         ObjectMapper objectMapper,
         InventoryServiceClient inventoryServiceClient,
         ProcessedOrderEventRepository processedOrderEventRepository,
-        MeterRegistry meterRegistry
+        MeterRegistry meterRegistry,
+        @Value("${app.lifecycle.outbox-retention-days:14}") int outboxRetentionDays,
+        @Value("${app.lifecycle.processed-event-retention-days:30}") int processedEventRetentionDays
     ) {
         this.orderRepository = orderRepository;
         this.outboxRepository = outboxRepository;
@@ -69,6 +75,8 @@ public class OrderService {
         this.objectMapper = objectMapper;
         this.inventoryServiceClient = inventoryServiceClient;
         this.processedOrderEventRepository = processedOrderEventRepository;
+        this.outboxRetentionDays = outboxRetentionDays;
+        this.processedEventRetentionDays = processedEventRetentionDays;
         this.ordersCreatedCounter = Counter.builder("business_orders_created_total").register(meterRegistry);
         this.ordersCancelledCounter = Counter.builder("business_orders_cancelled_total").register(meterRegistry);
         this.orderAmountSummary = DistributionSummary.builder("business_order_total_amount").baseUnit("currency").register(meterRegistry);
@@ -179,6 +187,14 @@ public class OrderService {
                 break;
             }
         }
+    }
+
+    @Scheduled(cron = "${app.lifecycle.cleanup-cron:0 10 3 * * *}")
+    @Transactional
+    public void cleanupHistoricalData() {
+        Instant now = Instant.now();
+        outboxRepository.deleteByPublishedIsTrueAndPublishedAtBefore(now.minus(outboxRetentionDays, ChronoUnit.DAYS));
+        processedOrderEventRepository.deleteByProcessedAtBefore(now.minus(processedEventRetentionDays, ChronoUnit.DAYS));
     }
 
     private void validateOrder(CreateOrderRequest request) {

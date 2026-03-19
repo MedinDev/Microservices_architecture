@@ -62,7 +62,11 @@ class PaymentServiceTest {
             lockRegistry,
             paymentGatewayClient,
             processedPaymentEventRepository,
-            new SimpleMeterRegistry()
+            new SimpleMeterRegistry(),
+            5000,
+            90,
+            365,
+            30
         );
     }
 

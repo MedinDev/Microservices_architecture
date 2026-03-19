@@ -30,13 +30,15 @@ import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
 import java.math.BigDecimal;
+import java.time.temporal.ChronoUnit;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import org.springframework.integration.redis.util.RedisLockRegistry;
@@ -44,6 +46,8 @@ import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,8 +62,12 @@ public class PaymentService {
     private final RedisLockRegistry lockRegistry;
     private final PaymentGatewayClient paymentGatewayClient;
     private final ProcessedPaymentEventRepository processedPaymentEventRepository;
-    private final Map<Long, PaymentResponse> paymentReadCache = new ConcurrentHashMap<>();
-    private final Map<Long, List<PaymentResponse>> orderPaymentReadCache = new ConcurrentHashMap<>();
+    private final Map<Long, PaymentResponse> paymentReadCache;
+    private final Map<Long, List<PaymentResponse>> orderPaymentReadCache;
+    private final int maxReadCacheEntries;
+    private final int transactionLogRetentionDays;
+    private final int refundRetentionDays;
+    private final int processedEventRetentionDays;
     private final Counter paymentsProcessedCounter;
     private final Counter paymentsFailedCounter;
     private final Counter refundsProcessedCounter;
@@ -75,7 +83,11 @@ public class PaymentService {
         RedisLockRegistry lockRegistry,
         PaymentGatewayClient paymentGatewayClient,
         ProcessedPaymentEventRepository processedPaymentEventRepository,
-        MeterRegistry meterRegistry
+        MeterRegistry meterRegistry,
+        @Value("${app.cache.max-read-entries:5000}") int maxReadCacheEntries,
+        @Value("${app.lifecycle.transaction-log-retention-days:90}") int transactionLogRetentionDays,
+        @Value("${app.lifecycle.refund-retention-days:365}") int refundRetentionDays,
+        @Value("${app.lifecycle.processed-event-retention-days:30}") int processedEventRetentionDays
     ) {
         this.paymentRepository = paymentRepository;
         this.transactionLogRepository = transactionLogRepository;
@@ -85,6 +97,22 @@ public class PaymentService {
         this.lockRegistry = lockRegistry;
         this.paymentGatewayClient = paymentGatewayClient;
         this.processedPaymentEventRepository = processedPaymentEventRepository;
+        this.maxReadCacheEntries = maxReadCacheEntries;
+        this.transactionLogRetentionDays = transactionLogRetentionDays;
+        this.refundRetentionDays = refundRetentionDays;
+        this.processedEventRetentionDays = processedEventRetentionDays;
+        this.paymentReadCache = Collections.synchronizedMap(new LinkedHashMap<>(128, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<Long, PaymentResponse> eldest) {
+                return size() > PaymentService.this.maxReadCacheEntries;
+            }
+        });
+        this.orderPaymentReadCache = Collections.synchronizedMap(new LinkedHashMap<>(128, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<Long, List<PaymentResponse>> eldest) {
+                return size() > PaymentService.this.maxReadCacheEntries;
+            }
+        });
         this.paymentsProcessedCounter = Counter.builder("business_payments_processed_total").register(meterRegistry);
         this.paymentsFailedCounter = Counter.builder("business_payments_failed_total").register(meterRegistry);
         this.refundsProcessedCounter = Counter.builder("business_refunds_processed_total").register(meterRegistry);
@@ -323,6 +351,15 @@ public class PaymentService {
 
     private List<PaymentResponse> getOrderPaymentsFallback(Long orderId, Throwable throwable) {
         return orderPaymentReadCache.getOrDefault(orderId, List.of());
+    }
+
+    @Scheduled(cron = "${app.lifecycle.cleanup-cron:0 15 3 * * *}")
+    @Transactional
+    public void cleanupHistoricalData() {
+        Instant now = Instant.now();
+        transactionLogRepository.deleteByCreatedAtBefore(now.minus(transactionLogRetentionDays, ChronoUnit.DAYS));
+        refundRepository.deleteByCreatedAtBefore(now.minus(refundRetentionDays, ChronoUnit.DAYS));
+        processedPaymentEventRepository.deleteByProcessedAtBefore(now.minus(processedEventRetentionDays, ChronoUnit.DAYS));
     }
 
     private PaymentResponse toResponse(PaymentEntity payment) {

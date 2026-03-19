@@ -24,7 +24,9 @@ import com.microservices.notification.repository.UserPreferenceRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -33,6 +35,8 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,8 +50,10 @@ public class NotificationService {
     private final KafkaTemplate<String, DomainEvent> kafkaTemplate;
     private final ObjectMapper objectMapper;
     private final ProcessedNotificationEventRepository processedNotificationEventRepository;
-    private final MeterRegistry meterRegistry;
     private final FieldEncryptionService fieldEncryptionService;
+    private final Map<NotificationChannel, Counter> notificationSentCounters;
+    private final int readNotificationRetentionDays;
+    private final int processedEventRetentionDays;
 
     public NotificationService(
         NotificationRepository notificationRepository,
@@ -58,7 +64,9 @@ public class NotificationService {
         ObjectMapper objectMapper,
         ProcessedNotificationEventRepository processedNotificationEventRepository,
         MeterRegistry meterRegistry,
-        FieldEncryptionService fieldEncryptionService
+        FieldEncryptionService fieldEncryptionService,
+        @Value("${app.lifecycle.read-notification-retention-days:30}") int readNotificationRetentionDays,
+        @Value("${app.lifecycle.processed-event-retention-days:30}") int processedEventRetentionDays
     ) {
         this.notificationRepository = notificationRepository;
         this.preferenceRepository = preferenceRepository;
@@ -67,8 +75,16 @@ public class NotificationService {
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
         this.processedNotificationEventRepository = processedNotificationEventRepository;
-        this.meterRegistry = meterRegistry;
         this.fieldEncryptionService = fieldEncryptionService;
+        this.readNotificationRetentionDays = readNotificationRetentionDays;
+        this.processedEventRetentionDays = processedEventRetentionDays;
+        this.notificationSentCounters = new EnumMap<>(NotificationChannel.class);
+        for (NotificationChannel channel : NotificationChannel.values()) {
+            this.notificationSentCounters.put(
+                channel,
+                Counter.builder("business_notifications_sent_total").tag("channel", channel.name()).register(meterRegistry)
+            );
+        }
     }
 
     @Transactional(readOnly = true)
@@ -144,10 +160,7 @@ public class NotificationService {
     }
 
     private void incrementNotificationSentCounter(NotificationChannel channel) {
-        Counter.builder("business_notifications_sent_total")
-            .tag("channel", channel.name())
-            .register(meterRegistry)
-            .increment();
+        notificationSentCounters.get(channel).increment();
     }
 
     private void sendByChannel(NotificationEntity notification) {
@@ -258,6 +271,14 @@ public class NotificationService {
             case REFUND_PROCESSED -> "Your refund has been processed.";
             default -> "You have a new update.";
         };
+    }
+
+    @Scheduled(cron = "${app.lifecycle.cleanup-cron:0 20 3 * * *}")
+    @Transactional
+    public void cleanupHistoricalData() {
+        Instant now = Instant.now();
+        notificationRepository.deleteByReadFlagIsTrueAndCreatedAtBefore(now.minus(readNotificationRetentionDays, ChronoUnit.DAYS));
+        processedNotificationEventRepository.deleteByProcessedAtBefore(now.minus(processedEventRetentionDays, ChronoUnit.DAYS));
     }
 
     private NotificationResponse toResponse(NotificationEntity entity) {

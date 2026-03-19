@@ -50,7 +50,9 @@ class OrderServiceTest {
             new ObjectMapper(),
             inventoryServiceClient,
             processedOrderEventRepository,
-            new SimpleMeterRegistry()
+            new SimpleMeterRegistry(),
+            14,
+            30
         );
     }
 

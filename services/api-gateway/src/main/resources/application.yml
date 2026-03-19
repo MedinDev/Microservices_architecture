@@ -45,8 +45,24 @@ spring:
           predicates:
             - Path=/api/orders/**
           filters:
-            - RewritePath=/api/orders/?(?<segment>.*), /${segment}
+            - RewritePath=/api/orders/?(?<segment>.*), /api/orders/${segment}
+            - AddRequestHeader=X-Api-Version, 1
             - AddRequestHeader=X-Request-Source, api-gateway
+            - AddResponseHeader=X-Response-Source, order-service
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 40
+                key-resolver: "#{@userKeyResolver}"
+
+        - id: order-service-route-v1
+          uri: lb://order-service
+          predicates:
+            - Path=/api/v1/orders/**
+          filters:
+            - RewritePath=/api/v1/orders/?(?<segment>.*), /api/orders/${segment}
+            - AddRequestHeader=X-Request-Source, api-gateway
+            - AddRequestHeader=X-Api-Version, 1
             - AddResponseHeader=X-Response-Source, order-service
             - name: RequestRateLimiter
               args:
@@ -59,8 +75,24 @@ spring:
           predicates:
             - Path=/api/payments/**
           filters:
-            - RewritePath=/api/payments/?(?<segment>.*), /${segment}
+            - RewritePath=/api/payments/?(?<segment>.*), /api/payments/${segment}
+            - AddRequestHeader=X-Api-Version, 1
             - AddRequestHeader=X-Request-Source, api-gateway
+            - AddResponseHeader=X-Response-Source, payment-service
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 15
+                redis-rate-limiter.burstCapacity: 30
+                key-resolver: "#{@userKeyResolver}"
+
+        - id: payment-service-route-v1
+          uri: lb://payment-service
+          predicates:
+            - Path=/api/v1/payments/**
+          filters:
+            - RewritePath=/api/v1/payments/?(?<segment>.*), /api/payments/${segment}
+            - AddRequestHeader=X-Request-Source, api-gateway
+            - AddRequestHeader=X-Api-Version, 1
             - AddResponseHeader=X-Response-Source, payment-service
             - name: RequestRateLimiter
               args:
@@ -73,8 +105,24 @@ spring:
           predicates:
             - Path=/api/notifications/**
           filters:
-            - RewritePath=/api/notifications/?(?<segment>.*), /${segment}
+            - RewritePath=/api/notifications/?(?<segment>.*), /api/notifications/${segment}
+            - AddRequestHeader=X-Api-Version, 1
             - AddRequestHeader=X-Request-Source, api-gateway
+            - AddResponseHeader=X-Response-Source, notification-service
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                key-resolver: "#{@userKeyResolver}"
+
+        - id: notification-service-route-v1
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - RewritePath=/api/v1/notifications/?(?<segment>.*), /api/notifications/${segment}
+            - AddRequestHeader=X-Request-Source, api-gateway
+            - AddRequestHeader=X-Api-Version, 1
             - AddResponseHeader=X-Response-Source, notification-service
             - name: RequestRateLimiter
               args:

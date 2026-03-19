@@ -17,6 +17,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    mem_limit: 768m
+    cpus: 0.75
+    logging:
+      driver: json-file
+      options:
+        max-size: "25m"
+        max-file: "5"
     networks:
       - backend
 
@@ -36,6 +43,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    mem_limit: 768m
+    cpus: 0.75
+    logging:
+      driver: json-file
+      options:
+        max-size: "25m"
+        max-file: "5"
     networks:
       - backend
 
@@ -55,6 +69,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    mem_limit: 512m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: "25m"
+        max-file: "5"
     networks:
       - backend
 
@@ -71,6 +92,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    mem_limit: 512m
+    cpus: 0.5
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "4"
     networks:
       - backend
 
@@ -110,11 +138,21 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 268435456
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
     healthcheck:
       test: [ "CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1" ]
       interval: 20s
       timeout: 10s
       retries: 15
+    mem_limit: 2g
+    cpus: 1.5
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "4"
     networks:
       - backend
 
@@ -138,11 +176,21 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 2
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_LOG_RETENTION_HOURS: 168
+      KAFKA_LOG_SEGMENT_BYTES: 268435456
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
     healthcheck:
       test: [ "CMD-SHELL", "kafka-topics --bootstrap-server localhost:9093 --list >/dev/null 2>&1" ]
       interval: 20s
       timeout: 10s
       retries: 15
+    mem_limit: 2g
+    cpus: 1.5
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "4"
     networks:
       - backend
 
@@ -232,6 +280,13 @@ services:
       interval: 15s
       timeout: 5s
       retries: 15
+    mem_limit: 768m
+    cpus: 0.75
+    logging:
+      driver: json-file
+      options:
+        max-size: "25m"
+        max-file: "4"
     networks:
       - backend
 
@@ -260,6 +315,9 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9093
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry-1:8761/eureka,http://service-registry-2:8761/eureka
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://host.docker.internal:9411/api/v2/spans
+      KAFKA_TOPIC_RETENTION_MS: 604800000
+      ORDER_OUTBOX_RETENTION_DAYS: 14
+      ORDER_PROCESSED_EVENT_RETENTION_DAYS: 30
     ports:
       - "8081:8081"
     healthcheck:
@@ -267,6 +325,13 @@ services:
       interval: 15s
       timeout: 5s
       retries: 15
+    mem_limit: 1024m
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "25m"
+        max-file: "4"
     networks:
       - backend
 
@@ -295,6 +360,10 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9093
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry-1:8761/eureka,http://service-registry-2:8761/eureka
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://host.docker.internal:9411/api/v2/spans
+      KAFKA_TOPIC_RETENTION_MS: 604800000
+      PAYMENT_TRANSACTION_LOG_RETENTION_DAYS: 90
+      PAYMENT_REFUND_RETENTION_DAYS: 365
+      PAYMENT_PROCESSED_EVENT_RETENTION_DAYS: 30
     ports:
       - "8082:8082"
     healthcheck:
@@ -302,6 +371,13 @@ services:
       interval: 15s
       timeout: 5s
       retries: 15
+    mem_limit: 1024m
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "25m"
+        max-file: "4"
     networks:
       - backend
 
@@ -330,6 +406,9 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9093
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry-1:8761/eureka,http://service-registry-2:8761/eureka
       MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://host.docker.internal:9411/api/v2/spans
+      KAFKA_TOPIC_RETENTION_MS: 604800000
+      NOTIFICATION_READ_RETENTION_DAYS: 30
+      NOTIFICATION_PROCESSED_EVENT_RETENTION_DAYS: 30
     ports:
       - "8083:8083"
     healthcheck:
@@ -337,6 +416,13 @@ services:
       interval: 15s
       timeout: 5s
       retries: 15
+    mem_limit: 768m
+    cpus: 0.75
+    logging:
+      driver: json-file
+      options:
+        max-size: "25m"
+        max-file: "4"
     networks:
       - backend
 

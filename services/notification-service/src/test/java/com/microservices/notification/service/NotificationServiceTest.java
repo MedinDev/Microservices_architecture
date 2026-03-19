@@ -56,7 +56,9 @@ class NotificationServiceTest {
             new ObjectMapper(),
             processedNotificationEventRepository,
             new SimpleMeterRegistry(),
-            new FieldEncryptionService("0123456789abcdef0123456789abcdef")
+            new FieldEncryptionService("0123456789abcdef0123456789abcdef"),
+            30,
+            30
         );
     }
 
