@@ -1,0 +1,444 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: microservices-platform
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+  namespace: microservices-platform
+data:
+  EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka
+  KAFKA_BOOTSTRAP_SERVERS: kafka-bootstrap.kafka.svc.cluster.local:9092
+  SPRING_DATA_REDIS_HOST: redis-master.redis.svc.cluster.local
+  SECURITY_OAUTH2_ISSUER_URI: https://auth.example.com/realms/microservices
+  SECURITY_OAUTH2_JWK_SET_URI: https://auth.example.com/realms/microservices/protocol/openid-connect/certs
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: service-registry
+  namespace: microservices-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: service-registry
+  template:
+    metadata:
+      labels:
+        app: service-registry
+    spec:
+      containers:
+        - name: service-registry
+          image: ghcr.io/medindev/microservices-service-registry:latest
+          ports:
+            - containerPort: 8761
+          resources:
+            requests:
+              cpu: 250m
+              memory: 384Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8761
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8761
+            initialDelaySeconds: 15
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: service-registry
+  namespace: microservices-platform
+spec:
+  selector:
+    app: service-registry
+  ports:
+    - name: http
+      port: 8761
+      targetPort: 8761
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: microservices-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: ghcr.io/medindev/microservices-api-gateway:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - secretRef:
+                name: platform-secrets
+          resources:
+            requests:
+              cpu: 300m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 25
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: microservices-platform
+spec:
+  type: LoadBalancer
+  selector:
+    app: api-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api-gateway-hpa
+  namespace: microservices-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api-gateway
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: microservices-platform
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: microservices-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+        - name: order-service
+          image: ghcr.io/medindev/microservices-order-service:latest
+          ports:
+            - containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - secretRef:
+                name: platform-secrets
+          env:
+            - name: DB_HOST
+              value: order-postgres-db.platform-db.svc.cluster.local
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: order_db
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: ORDER_DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: ORDER_DB_PASSWORD
+          resources:
+            requests:
+              cpu: 400m
+              memory: 768Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: microservices-platform
+spec:
+  selector:
+    app: order-service
+  ports:
+    - name: http
+      port: 8081
+      targetPort: 8081
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: order-service-hpa
+  namespace: microservices-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: order-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: microservices-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: ghcr.io/medindev/microservices-payment-service:latest
+          ports:
+            - containerPort: 8082
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - secretRef:
+                name: platform-secrets
+          env:
+            - name: DB_HOST
+              value: payment-postgres-db.platform-db.svc.cluster.local
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: payment_db
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: PAYMENT_DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: PAYMENT_DB_PASSWORD
+          resources:
+            requests:
+              cpu: 400m
+              memory: 768Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8082
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8082
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: microservices-platform
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: payment-service-hpa
+  namespace: microservices-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: payment-service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: microservices-platform
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: ghcr.io/medindev/microservices-notification-service:latest
+          ports:
+            - containerPort: 8083
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - secretRef:
+                name: platform-secrets
+          env:
+            - name: DB_HOST
+              value: notification-postgres-db.platform-db.svc.cluster.local
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: notification_db
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: NOTIFICATION_DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: platform-secrets
+                  key: NOTIFICATION_DB_PASSWORD
+          resources:
+            requests:
+              cpu: 300m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1.5Gi
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8083
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8083
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: microservices-platform
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - name: http
+      port: 8083
+      targetPort: 8083
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: notification-service-hpa
+  namespace: microservices-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: notification-service
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
