@@ -1,1 +1,17 @@
 com/microservices/order/OrderServiceApplication.class
+com/microservices/order/repository/ProcessedOrderEventRepository.class
+com/microservices/order/dto/OrderItemRequest.class
+com/microservices/order/domain/OrderOutboxEntity.class
+com/microservices/order/dto/CreateOrderRequest.class
+com/microservices/order/repository/OrderOutboxRepository.class
+com/microservices/order/repository/OrderRepository.class
+com/microservices/order/domain/ProcessedOrderEventEntity.class
+com/microservices/order/service/OrderService.class
+com/microservices/order/controller/OrderController.class
+com/microservices/order/domain/OrderItemEntity.class
+com/microservices/order/domain/OrderStatus.class
+com/microservices/order/service/InventoryServiceClient.class
+com/microservices/order/domain/OrderEntity.class
+com/microservices/order/config/OpenApiConfig.class
+com/microservices/order/dto/OrderResponse.class
+com/microservices/order/dto/OrderItemResponse.class

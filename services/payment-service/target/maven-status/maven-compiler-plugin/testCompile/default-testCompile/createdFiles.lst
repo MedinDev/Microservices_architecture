@@ -1,0 +1,4 @@
+com/microservices/payment/repository/PaymentRepositoryPostgresIntegrationTest.class
+com/microservices/payment/service/PaymentServiceTest.class
+com/microservices/payment/repository/PaymentRepositoryDataJpaTest.class
+com/microservices/payment/service/PaymentGatewayChaosTest.class

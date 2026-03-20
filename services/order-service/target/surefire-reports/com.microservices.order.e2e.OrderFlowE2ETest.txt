@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.microservices.order.e2e.OrderFlowE2ETest
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 3, Time elapsed: 0 s -- in com.microservices.order.e2e.OrderFlowE2ETest

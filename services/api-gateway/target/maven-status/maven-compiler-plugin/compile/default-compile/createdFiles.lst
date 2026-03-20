@@ -1,2 +1,5 @@
-com/microservices/gateway/ApiGatewayApplication.class
+com/microservices/gateway/config/GatewaySecurityConfig.class
 com/microservices/gateway/config/RateLimitConfig.class
+com/microservices/gateway/config/CorrelationIdGatewayFilter.class
+com/microservices/gateway/ApiGatewayApplication.class
+com/microservices/gateway/config/SecurityHeaderPropagationFilter.class

@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.microservices.payment.service.PaymentServiceTest
+-------------------------------------------------------------------------------
+Tests run: 3, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.320 s -- in com.microservices.payment.service.PaymentServiceTest

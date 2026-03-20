@@ -1,1 +1,16 @@
-/Users/medindev/Dev/portfolio Backend/Microservices_architecture/microservices-platform/services/notification-service/src/main/java/com/microservices/notification/NotificationServiceApplication.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/NotificationServiceApplication.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/config/OpenApiConfig.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/config/WebSocketConfig.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/controller/NotificationController.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/domain/NotificationChannel.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/domain/NotificationEntity.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/domain/NotificationStatus.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/domain/ProcessedNotificationEventEntity.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/domain/UserPreferenceEntity.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/dto/NotificationPreferenceRequest.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/dto/NotificationPreferenceResponse.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/dto/NotificationResponse.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/repository/NotificationRepository.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/repository/ProcessedNotificationEventRepository.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/repository/UserPreferenceRepository.java
+/Users/medindev/Dev/portfolio Backend/Microservices_architecture/services/notification-service/src/main/java/com/microservices/notification/service/NotificationService.java

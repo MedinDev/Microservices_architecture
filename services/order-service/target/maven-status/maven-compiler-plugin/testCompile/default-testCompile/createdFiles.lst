@@ -1,0 +1,5 @@
+com/microservices/order/service/InventoryServiceChaosTest.class
+com/microservices/order/service/OrderServiceTest.class
+com/microservices/order/contract/InventoryContractConsumerTest.class
+com/microservices/order/e2e/OrderFlowE2ETest.class
+com/microservices/order/repository/OrderRepositoryDataJpaTest.class

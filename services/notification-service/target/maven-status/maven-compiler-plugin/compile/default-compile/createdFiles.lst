@@ -1,1 +1,17 @@
+com/microservices/notification/config/OpenApiConfig.class
+com/microservices/notification/domain/NotificationStatus.class
+com/microservices/notification/domain/ProcessedNotificationEventEntity.class
+com/microservices/notification/domain/NotificationEntity.class
+com/microservices/notification/dto/NotificationResponse.class
+com/microservices/notification/repository/NotificationRepository.class
+com/microservices/notification/dto/NotificationPreferenceResponse.class
+com/microservices/notification/domain/NotificationChannel.class
 com/microservices/notification/NotificationServiceApplication.class
+com/microservices/notification/service/NotificationService$1.class
+com/microservices/notification/config/WebSocketConfig.class
+com/microservices/notification/controller/NotificationController.class
+com/microservices/notification/dto/NotificationPreferenceRequest.class
+com/microservices/notification/service/NotificationService.class
+com/microservices/notification/repository/UserPreferenceRepository.class
+com/microservices/notification/repository/ProcessedNotificationEventRepository.class
+com/microservices/notification/domain/UserPreferenceEntity.class
